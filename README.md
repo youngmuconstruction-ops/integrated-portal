@@ -7,5 +7,8 @@
 - `overview.html`: 기획 개요 문서 소스
 - `overview.pdf`: 기획 PDF (업로드 예정)
 
+## CLI Handoff
+- `docs/CLI_HANDOFF.md`: 대화 기반 결정사항/현재상태/다음작업 정리
+
 ## Notes
 현재 세션에서는 Git CLI 없이 GitHub API로 업로드를 진행했습니다.
