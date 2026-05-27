@@ -1,0 +1,25 @@
+[
+  {
+    "id": "sample-site",
+    "name": "Sample Site",
+    "type": "sale",
+    "orderIdx": 0,
+    "createdAt": "2026-05-28 00:00:00",
+    "updatedAt": "2026-05-28 00:00:00",
+    "values": {
+      "rev": 100000000,
+      "cost": 85000000,
+      "profit": 15000000,
+      "roi": 15.0,
+      "land": 15000000,
+      "constr": 55000000,
+      "sales": 5000000,
+      "levy": 1000000,
+      "incid": 4000000,
+      "finance": 5000000
+    },
+    "tree": [],
+    "line_items": [],
+    "traces": {}
+  }
+]
