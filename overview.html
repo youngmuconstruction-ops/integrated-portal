@@ -1,13 +1,74 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>통합 시스템 개요</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>통합 시스템 화면구성안</title>
+<style>
+  body { font-family: "Malgun Gothic", "Noto Sans KR", sans-serif; margin: 28px; color: #1f2937; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  .sub { color: #475569; margin-bottom: 14px; }
+  .box { border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .grid { display:grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px; }
+  .tile { border:1px solid #94a3b8; border-radius: 6px; text-align:center; padding: 18px 8px; font-weight:700; }
+  table { width:100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px; text-align:left; }
+  th { background:#f8fafc; }
+  ul { margin: 6px 0 0 18px; }
+</style>
 </head>
 <body>
-  <h1>통합 시스템 기획 개요</h1>
-  <p>로컬 원본 파일은 작업 디렉토리의 overview.html 및 overview.pdf 입니다.</p>
-  <p>PDF 바이너리는 업로드 경로 확정 후 추가 커밋 예정입니다.</p>
+  <h1>회사 통합 시스템 기획 초안</h1>
+  <div class="sub">화면구성안 + 메뉴구조도 + 데이터 통합 방향 (MVP 기준)</div>
+
+  <div class="box">
+    <h3>1) 메인 진입 화면 (4개 사각 메뉴)</h3>
+    <div class="grid">
+      <div class="tile">경영진</div>
+      <div class="tile">임원</div>
+      <div class="tile">본사</div>
+      <div class="tile">현장</div>
+    </div>
+    <ul>
+      <li>경영진/임원: 별도 인증(2차 인증 권장) 후 전용 메뉴로 이동</li>
+      <li>본사: 부서별 자동화 시스템 허브로 이동</li>
+      <li>현장: 입퇴거/민원/공지 등 현장 운영 메뉴로 이동</li>
+    </ul>
+  </div>
+
+  <div class="box">
+    <h3>2) 권한별 주요 메뉴 구조</h3>
+    <table>
+      <thead><tr><th>권한</th><th>핵심 메뉴</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>경영진</td><td>사업수지, 전사 KPI, 경영 리포트</td><td>현재 개발된 사업수지 시스템 우선 연결</td></tr>
+        <tr><td>임원</td><td>사업수지, 담당부문 실적, 승인/결재</td><td>부문별 Drill-down</td></tr>
+        <tr><td>본사(기획관리부)</td><td>입퇴거 관리, 입주민 입주 설문조사</td><td>부서 자동화 1순위</td></tr>
+        <tr><td>현장</td><td>입퇴거 현황, 설문, 민원/하자, 공지</td><td>모바일 접근 고려</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>3) 데이터 통합/조인 방향</h3>
+    <table>
+      <thead><tr><th>공통 키</th><th>연결 테이블(예시)</th><th>활용 지표</th></tr></thead>
+      <tbody>
+        <tr><td>project_id / site_id</td><td>business_balance + move_in_out + surveys</td><td>현장별 손익/입주율/만족도</td></tr>
+        <tr><td>department_id</td><td>users + permissions + workflows</td><td>부서별 업무 처리량/리드타임</td></tr>
+        <tr><td>resident_id</td><td>residents + survey_answers + move_in_out</td><td>입주여정 분석</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="box">
+    <h3>4) MVP 단계 제안</h3>
+    <ul>
+      <li>통합 포털(4메뉴) + 권한 로그인</li>
+      <li>경영진/임원: 사업수지 연결</li>
+      <li>본사 기획관리부: 입퇴거 + 입주 설문 연결</li>
+      <li>공통 코드(현장/프로젝트/부서) 정리 후 DB 조인 확장</li>
+    </ul>
+  </div>
 </body>
 </html>
