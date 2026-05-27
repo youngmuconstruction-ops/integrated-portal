@@ -4,10 +4,580 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>통합 시스템 프로토타입</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --ink: #1d2433;
+      --line: #d5ddeb;
+      --primary: #0f766e;
+      --primary-ink: #ffffff;
+      --card: #ffffff;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Noto Sans KR", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 50% 20%, #ffffff 0%, var(--bg) 65%);
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .title {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .subtitle { color: var(--muted); font-size: 14px; margin-top: 4px; }
+    .btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      border-radius: 8px;
+      height: 38px;
+      padding: 0 14px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .btn.primary {
+      border-color: var(--primary);
+      background: var(--primary);
+      color: var(--primary-ink);
+    }
+    .hero {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+    .hero h2 { margin: 0 0 8px; font-size: 18px; }
+    .hero p { margin: 0; color: var(--muted); line-height: 1.5; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(180px, 1fr));
+      gap: 14px;
+      max-width: 560px;
+      margin: 18px auto 12px;
+    }
+    .tile {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card);
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+    .tile:hover { transform: translateY(-3px); border-color: #9fb6dd; box-shadow: 0 8px 16px rgba(31,41,55,.08); }
+    .tile strong { font-size: 22px; }
+    .tile span { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .layout {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .panel {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 360px;
+    }
+    #workspace main.panel { min-width: 0; }
+    .panel h3 { margin: 0 0 12px; font-size: 16px; }
+    .nav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .nav button.active { border-color: var(--primary); color: var(--primary); font-weight: 700; }
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(120px,1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .kpi .item {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+      background: #fbfdff;
+    }
+    .item b { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .item strong { font-size: 18px; }
+    .table {
+      width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13px;
+    }
+    .table th, .table td { border-bottom: 1px solid var(--line); padding: 9px 6px; text-align: left; }
+    .table th { color: var(--muted); font-weight: 600; }
+    .embed-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 10px;
+      background: #fff;
+    }
+    .embed-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #f8fbff;
+    }
+    .embed-head small {
+      color: var(--muted);
+      display: block;
+      word-break: break-all;
+    }
+    .embed-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .embed-frame {
+      width: 100%;
+      height: 720px;
+      border: 0;
+      background: #fff;
+    }
+    .upload-box {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: #fbfdff;
+      margin-top: 8px;
+    }
+    .upload-box input[type="file"] { width: 100%; margin: 8px 0 10px; }
+    .help { color: var(--muted); font-size: 12px; margin: 0; }
+    .danger { color: #b91c1c; font-size: 12px; margin-top: 8px; }
+    .hidden { display: none; }
+    .modal {
+      position: fixed; inset: 0; background: rgba(2,6,23,.45);
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal.open { display: flex; }
+    .dialog {
+      width: 100%; max-width: 420px; background: #fff; border-radius: 8px; border: 1px solid var(--line); padding: 16px;
+    }
+    .field { margin-bottom: 10px; }
+    .field label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .field input {
+      width: 100%; height: 38px; border-radius: 8px; border: 1px solid var(--line); padding: 0 10px;
+    }
+    .row { display:flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .kpi { grid-template-columns: repeat(2, minmax(120px,1fr)); }
+    }
+  </style>
 </head>
 <body>
-  <h1>회사 통합 시스템 프로토타입</h1>
-  <p>로컬 원본 파일은 작업 디렉토리의 prototype.html을 사용합니다.</p>
-  <p>GitHub 업로드 자동화 제약으로 웹 화면 전문은 다음 커밋에서 반영 예정입니다.</p>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <div class="title">회사 통합 시스템 프로토타입</div>
+        <div class="subtitle">권한별 진입 + 부서별 업무 연결 + 향후 DB 조인 확장</div>
+      </div>
+      <button class="btn" id="homeBtn">처음 화면</button>
+    </div>
+
+    <section class="hero" id="intro">
+      <h2>메인 진입 화면</h2>
+      <p>가운데 4개 사각 메뉴로 시작합니다. 경영진/임원은 별도 인증 후 대시보드로 이동하고, 본사/현장은 조직 또는 현장 업무 허브로 이동합니다.</p>
+      <div class="grid">
+        <button class="tile" data-role="exec"><strong>경영진</strong><span>사업수지/KPI</span></button>
+        <button class="tile" data-role="director"><strong>임원</strong><span>부문/승인/리포트</span></button>
+        <button class="tile" data-role="hq"><strong>본사</strong><span>부서별 자동화</span></button>
+        <button class="tile" data-role="site"><strong>현장</strong><span>현장 운영업무</span></button>
+      </div>
+    </section>
+
+    <section class="layout hidden" id="workspace">
+      <aside class="panel nav">
+        <h3 id="roleTitle">메뉴</h3>
+        <div id="menuBox"></div>
+      </aside>
+      <main class="panel">
+        <h3 id="viewTitle">대시보드</h3>
+        <p id="viewDesc" style="color: var(--muted); margin:0 0 8px; line-height:1.5;"></p>
+        <div id="content"></div>
+      </main>
+    </section>
+  </div>
+
+  <div class="modal" id="loginModal">
+    <div class="dialog">
+      <h3 id="loginTitle" style="margin:0 0 12px;">로그인</h3>
+      <div class="field">
+        <label>사번/아이디</label>
+        <input id="userId" placeholder="admin01" />
+      </div>
+      <div class="field">
+        <label>비밀번호</label>
+        <input id="password" type="password" placeholder="********" />
+      </div>
+      <div class="row">
+        <button class="btn" id="cancelLogin">취소</button>
+        <button class="btn primary" id="submitLogin">로그인</button>
+      </div>
+      <p style="font-size:12px; color: var(--muted); margin-top:10px;">프로토타입: 인증은 데모 흐름이며 실제 연동 전 단계입니다.</p>
+    </div>
+  </div>
+
+  <script>
+    const menus = {
+      businessUrl: "http://192.168.0.114:3001/dashboard_b_workhub.html",
+      exec: {
+        title: "경영진 포털",
+        items: [
+          ["business", "사업수지 대시보드"],
+          ["kpi", "전사 핵심 KPI"],
+          ["report", "월간 경영 리포트"]
+        ]
+      },
+      director: {
+        title: "임원 포털",
+        items: [
+          ["business", "사업수지 대시보드"],
+          ["division", "담당 부문 실적"],
+          ["approval", "승인/결재"]
+        ]
+      },
+      hq: {
+        title: "본사 허브",
+        items: [
+          ["planning", "기획관리부"],
+          ["civil", "토건관리부 실행계획"],
+          ["finance", "재무/회계"],
+          ["hr", "인사/총무"],
+          ["ops", "운영관리"]
+        ]
+      },
+      site: {
+        title: "현장 허브",
+        items: [
+          ["move", "입퇴거 현황"],
+          ["survey", "입주민 설문"],
+          ["cs", "민원/하자"],
+          ["notice", "현장 공지"]
+        ]
+      }
+    };
+
+    const intro = document.getElementById("intro");
+    const workspace = document.getElementById("workspace");
+    const roleTitle = document.getElementById("roleTitle");
+    const menuBox = document.getElementById("menuBox");
+    const viewTitle = document.getElementById("viewTitle");
+    const viewDesc = document.getElementById("viewDesc");
+    const content = document.getElementById("content");
+
+    const loginModal = document.getElementById("loginModal");
+    const loginTitle = document.getElementById("loginTitle");
+    const homeBtn = document.getElementById("homeBtn");
+    const submitLogin = document.getElementById("submitLogin");
+    const cancelLogin = document.getElementById("cancelLogin");
+
+    let pendingRole = null;
+    let activeRole = null;
+
+    document.querySelectorAll(".tile").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const role = btn.dataset.role;
+        if (role === "exec" || role === "director") {
+          pendingRole = role;
+          loginTitle.textContent = role === "exec" ? "경영진 로그인" : "임원 로그인";
+          loginModal.classList.add("open");
+          return;
+        }
+        enterRole(role);
+      });
+    });
+
+    cancelLogin.addEventListener("click", () => loginModal.classList.remove("open"));
+    submitLogin.addEventListener("click", () => {
+      if (!pendingRole) return;
+      loginModal.classList.remove("open");
+      enterRole(pendingRole);
+      pendingRole = null;
+    });
+
+    homeBtn.addEventListener("click", () => {
+      intro.classList.remove("hidden");
+      workspace.classList.add("hidden");
+      activeRole = null;
+    });
+
+    function enterRole(role) {
+      activeRole = role;
+      intro.classList.add("hidden");
+      workspace.classList.remove("hidden");
+      roleTitle.textContent = menus[role].title;
+      renderMenu(role);
+      const first = menus[role].items[0][0];
+      renderView(first);
+    }
+
+    function renderMenu(role) {
+      menuBox.innerHTML = "";
+      menus[role].items.forEach(([id, label], idx) => {
+        const b = document.createElement("button");
+        b.textContent = label;
+        if (idx === 0) b.classList.add("active");
+        b.addEventListener("click", () => {
+          document.querySelectorAll(".nav button").forEach(x => x.classList.remove("active"));
+          b.classList.add("active");
+          renderView(id);
+        });
+        menuBox.appendChild(b);
+      });
+    }
+
+    function renderView(view) {
+      const map = {
+        business: {
+          t: "사업수지 대시보드",
+          d: "기존 개발 시스템을 포털 내부에서 바로 표시합니다. 표시 제한 시 새 창으로 열어 사용할 수 있습니다.",
+          html: businessEmbed()
+        },
+        kpi: {
+          t: "전사 핵심 KPI",
+          d: "경영진용 요약 지표. DB 조인 후 실시간 수치로 전환 가능.",
+          html: kpiBox(["입주율", "93.4%"], ["매출달성", "88.1%"], ["원가율", "62.7%"], ["민원해결", "97.2%"]) 
+        },
+        report: {
+          t: "월간 경영 리포트",
+          d: "월/분기 보고서 PDF, 주요 이슈, 투자 판단 참고자료를 제공.",
+          html: simpleList(["월간 보고서 보기", "분기 성과 비교", "사업 리스크 메모"]) 
+        },
+        division: {
+          t: "담당 부문 실적",
+          d: "임원 관할 부서별 매출/비용/진척률 및 전월 대비 변화를 요약.",
+          html: simpleList(["기획관리부 성과", "운영관리부 성과", "재무/회계 이슈"]) 
+        },
+        approval: {
+          t: "승인/결재",
+          d: "임원 승인 항목(예산 변경, 주요 계약, 정책 승인) 처리 화면.",
+          html: simpleList(["예산 변경 승인", "계약 검토", "운영 정책 승인"]) 
+        },
+        planning: {
+          t: "기획관리부 업무 연결",
+          d: "입퇴거 관리, 입주민 입주 설문조사, 현장별 정착률 통계를 연결하는 허브.",
+          html: simpleList(["입퇴거 관리 시스템", "입주민 설문 시스템", "설문 결과 통합통계"]) 
+        },
+        civil: {
+          t: "토건관리부 실행계획 업로드",
+          d: "엑셀/PDF 실행계획 파일을 업로드하면 RAW 데이터를 저장하고 이력을 조회합니다. (현재는 브라우저 로컬 저장 데모)",
+          html: executionPlanTemplate()
+        },
+        finance: {
+          t: "재무/회계",
+          d: "청구/수납, 정산, 비용 검증 등 재무 흐름 자동화 연동 영역.",
+          html: simpleList(["청구/수납 현황", "비용 정산", "미수금 관리"]) 
+        },
+        hr: {
+          t: "인사/총무",
+          d: "근태/휴가/인사정보/문서관리를 연결하는 내부 운영 메뉴.",
+          html: simpleList(["근태 관리", "휴가 승인", "문서/자산 관리"]) 
+        },
+        ops: {
+          t: "운영관리",
+          d: "현장 운영 이슈와 점검, 민원, 공지 관리 시스템과 연결.",
+          html: simpleList(["현장 점검", "민원 추적", "운영 공지"]) 
+        },
+        move: {
+          t: "현장 입퇴거 현황",
+          d: "현장 단위 입주/퇴거 현황과 예정보고를 조회.",
+          html: businessTable()
+        },
+        survey: {
+          t: "입주민 설문",
+          d: "입주 초기 만족도 설문, 개선요청, 응답률 모니터링.",
+          html: kpiBox(["응답률", "78%"], ["만족도", "4.2/5"], ["개선요청", "34건"], ["처리완료", "29건"]) 
+        },
+        cs: {
+          t: "민원/하자",
+          d: "현장 접수된 민원/하자 건의 진행 상태를 추적.",
+          html: simpleList(["신규 접수", "처리중", "완료 검수"]) 
+        },
+        notice: {
+          t: "현장 공지",
+          d: "운영 일정, 점검 일정, 긴급 공지를 현장 인원에게 배포.",
+          html: simpleList(["금주 점검 일정", "시설 공지", "긴급 안내"]) 
+        }
+      };
+
+      const picked = map[view] || { t: "메뉴", d: "", html: "" };
+      viewTitle.textContent = picked.t;
+      viewDesc.textContent = picked.d;
+      content.innerHTML = picked.html;
+      if (view === "civil") {
+        bindExecutionPlanEvents();
+        renderExecutionPlanRows();
+      }
+    }
+
+    function kpiBox(...pairs) {
+      return `<div class="kpi">${pairs.map(p => `<div class="item"><b>${p[0]}</b><strong>${p[1]}</strong></div>`).join("")}</div>`;
+    }
+
+    function simpleList(items) {
+      return `<table class="table"><thead><tr><th>메뉴</th><th>연결 방식</th></tr></thead><tbody>${items.map(i => `<tr><td>${i}</td><td>기존 시스템 링크/API 연동</td></tr>`).join("")}</tbody></table>`;
+    }
+
+    function businessTable() {
+      return `<table class="table"><thead><tr><th>프로젝트</th><th>수입</th><th>지출</th><th>손익</th></tr></thead><tbody>
+      <tr><td>A 현장</td><td>12.4억</td><td>8.7억</td><td>+3.7억</td></tr>
+      <tr><td>B 현장</td><td>9.2억</td><td>7.9억</td><td>+1.3억</td></tr>
+      <tr><td>C 현장</td><td>6.1억</td><td>6.8억</td><td>-0.7억</td></tr>
+      </tbody></table>`;
+    }
+
+    function businessEmbed() {
+      const safeUrl = escapeHtml(menus.businessUrl);
+      return `<div class="embed-wrap">
+        <div class="embed-head">
+          <div>
+            <strong>기존 사업수지 시스템</strong>
+            <small>${safeUrl}</small>
+          </div>
+          <div class="embed-actions">
+            <button class="btn" id="fullscreenBtn">전체화면</button>
+            <button class="btn" onclick="window.open('${menus.businessUrl}','_blank','noopener')">새 창 열기</button>
+          </div>
+        </div>
+        <iframe class="embed-frame" src="${menus.businessUrl}" title="사업수지 시스템"></iframe>
+      </div>`;
+    }
+
+    document.addEventListener("click", async (event) => {
+      if (!(event.target instanceof HTMLElement)) return;
+      if (event.target.id !== "fullscreenBtn") return;
+      const frame = document.querySelector(".embed-frame");
+      if (!frame) return;
+      if (frame.requestFullscreen) {
+        await frame.requestFullscreen();
+      }
+    });
+
+    function executionPlanTemplate() {
+      return `<div class="upload-box">
+        <strong>파일 업로드</strong>
+        <p class="help">지원: .xlsx, .xls, .pdf, .csv (최대 10MB)</p>
+        <input id="planFile" type="file" accept=".xlsx,.xls,.pdf,.csv" />
+        <button class="btn primary" id="uploadPlanBtn">RAW 데이터 저장</button>
+        <p id="uploadMsg" class="help">업로드 후 파일명/확장자/용량/RAW 미리보기를 저장합니다.</p>
+      </div>
+      <table class="table">
+        <thead><tr><th>업로드일시</th><th>파일명</th><th>형식</th><th>용량(KB)</th><th>RAW 미리보기</th></tr></thead>
+        <tbody id="planRows"><tr><td colspan="5">저장된 파일이 없습니다.</td></tr></tbody>
+      </table>`;
+    }
+
+    function bindExecutionPlanEvents() {
+      const button = document.getElementById("uploadPlanBtn");
+      if (!button) return;
+      button.addEventListener("click", async () => {
+        const fileEl = document.getElementById("planFile");
+        const msg = document.getElementById("uploadMsg");
+        const file = fileEl && fileEl.files ? fileEl.files[0] : null;
+        if (!file) {
+          msg.textContent = "파일을 먼저 선택해주세요.";
+          msg.className = "danger";
+          return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          msg.textContent = "10MB 이하 파일만 업로드할 수 있습니다.";
+          msg.className = "danger";
+          return;
+        }
+
+        const rawPreview = await buildRawPreview(file);
+        const rows = loadExecutionPlanRows();
+        rows.unshift({
+          uploadedAt: new Date().toLocaleString("ko-KR"),
+          name: file.name,
+          ext: file.name.split(".").pop().toLowerCase(),
+          sizeKb: (file.size / 1024).toFixed(1),
+          rawPreview
+        });
+        localStorage.setItem("executionPlanRows", JSON.stringify(rows.slice(0, 30)));
+        msg.textContent = "저장 완료: RAW 데이터 미리보기를 이력에 반영했습니다.";
+        msg.className = "help";
+        fileEl.value = "";
+        renderExecutionPlanRows();
+      });
+    }
+
+    function loadExecutionPlanRows() {
+      try {
+        return JSON.parse(localStorage.getItem("executionPlanRows") || "[]");
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function renderExecutionPlanRows() {
+      const tbody = document.getElementById("planRows");
+      if (!tbody) return;
+      const rows = loadExecutionPlanRows();
+      if (!rows.length) {
+        tbody.innerHTML = "<tr><td colspan='5'>저장된 파일이 없습니다.</td></tr>";
+        return;
+      }
+      tbody.innerHTML = rows.map(r => `<tr>
+        <td>${escapeHtml(r.uploadedAt)}</td>
+        <td>${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.ext)}</td>
+        <td>${escapeHtml(r.sizeKb)}</td>
+        <td>${escapeHtml(r.rawPreview)}</td>
+      </tr>`).join("");
+    }
+
+    async function buildRawPreview(file) {
+      const ext = file.name.split(".").pop().toLowerCase();
+      if (ext === "csv") {
+        const text = await file.text();
+        return text.replace(/\s+/g, " ").slice(0, 120);
+      }
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer).slice(0, 24);
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, "0")).join(" ");
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll("\"", "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+  </script>
 </body>
 </html>
