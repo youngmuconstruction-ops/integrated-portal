@@ -1,0 +1,12 @@
+# Business balance runtime data
+modules/business-balance/data/sites.json
+modules/business-balance/data/*.db
+modules/business-balance/uploads/*
+!modules/business-balance/uploads/.gitkeep
+modules/business-balance/build/
+modules/business-balance/*.log
+
+# Local/editor files
+.DS_Store
+Thumbs.db
+*.tmp
