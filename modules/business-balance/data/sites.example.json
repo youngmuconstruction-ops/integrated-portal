@@ -1,8 +1,8 @@
 [
   {
     "id": "sample-site",
-    "name": "Sample Site",
-    "type": "sale",
+    "name": "샘플 현장",
+    "type": "분양",
     "orderIdx": 0,
     "createdAt": "2026-05-28 00:00:00",
     "updatedAt": "2026-05-28 00:00:00",

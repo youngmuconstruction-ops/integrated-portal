@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>사업수지 시뮬레이터 Java 운영판</title>
+    <style>
+        :root {
+            --primary: #E30613; --primary-dark: #B30410; --dark: #0f172a;
+            --muted: #64748b; --bg: #f1f5f9; --card: #fff; --border: #e2e8f0;
+            --success: #16a34a; --danger: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Malgun Gothic', 'Segoe UI', sans-serif; margin: 0; background: var(--bg); color: var(--dark); }
+
+        .navbar { background: #fff; padding: 14px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); position: sticky; top: 0; z-index: 100; }
+        .brand { margin: 0; font-size: 20px; cursor: pointer; }
+        .brand .accent { color: var(--primary); }
+        .container { max-width: 1400px; margin: 28px auto; padding: 0 24px; }
+
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+        .header-row h1 { margin: 0; font-size: 24px; }
+        .status-text { font-size: 12px; color: var(--muted); }
+
+        .summary-box { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+        .stat-item { background: var(--dark); color: white; padding: 20px; border-radius: 12px; }
+        .stat-item .label { font-size: 12px; opacity: 0.75; margin-bottom: 6px; font-weight: 600; }
+        .stat-item .value { font-size: 24px; font-weight: 800; line-height: 1.2; }
+        .stat-item .sub { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+        .stat-item.highlight { background: var(--primary); }
+        .stat-item.negative { background: var(--danger); }
+
+        .card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid var(--border); margin-bottom: 22px; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+        .card-header h3 { margin: 0; font-size: 16px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid var(--border); padding: 9px 10px; font-size: 13px; }
+        th { background: #f8fafc; font-weight: 600; color: var(--muted); text-align: center; }
+        td { text-align: right; }
+        td.td-label { text-align: left; }
+        input[type=text] { width: 100%; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 5px; text-align: right; font-size: 13px; background: transparent; }
+        input[type=text]:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(227,6,19,0.15); background: #fff; }
+
+        /* Tree table */
+        .row-toplevel td { background: #1e293b; color: #fff; font-weight: 700; border-color: #334155; }
+        .row-section-mid td { background: #dbeafe; font-weight: 600; color: #1e40af; }
+        .row-section-3 td { background: #f0fdf4; font-weight: 600; color: #166534; }
+        .row-item td { background: #fff; }
+        .row-item:hover td { background: #f8fafc; }
+        .row-subtotal td { background: #ecfdf5; font-weight: 700; color: var(--success); }
+        .row-total td { background: #fef2f2; font-weight: 800; color: var(--danger); font-size: 14px; }
+        .row-total td:first-child { border-left: 4px solid var(--danger); }
+        .row-toplevel td:first-child { border-left: 4px solid #94a3b8; }
+
+        .toggle-btn { cursor: pointer; font-size: 10px; user-select: none; display: inline-block; width: 14px; text-align: center; margin-right: 4px; color: inherit; opacity: 0.7; }
+        .toggle-btn:hover { opacity: 1; }
+        .toggle-spacer { display: inline-block; width: 18px; }
+
+        .calc-formula { font-size: 11px; color: #475569; line-height: 1.65; }
+        .calc-item-line { display: block; }
+        .calc-item-line .ci-name { color: #64748b; }
+        .calc-item-line .ci-amt { font-variant-numeric: tabular-nums; }
+        .calc-sum-line { display: block; margin-top: 4px; padding-top: 4px; border-top: 1px solid #cbd5e1; font-weight: 600; color: #334155; }
+        .calc-sum-line .ci-amt { }
+        .calc-clearfix { clear: both; display: block; height: 0; }
+        .verify-ok { color: var(--success); font-weight: 800; margin-left: 6px; }
+        .verify-fail { color: var(--danger); font-weight: 800; margin-left: 6px; font-size: 12px; }
+        .verify-note { font-size: 10px; color: var(--danger); display: block; margin-top: 2px; }
+        /* 수입/지출 최상위 행(어두운 배경)에서 산출내역 텍스트를 흰색으로 */
+        .row-toplevel .calc-formula { color: #fff; }
+        .row-toplevel .ci-name { color: #fff; }
+        .row-toplevel .ci-amt { color: #fff; }
+        .row-toplevel .calc-sum-line { color: #fff; border-top-color: rgba(255,255,255,0.35); }
+
+        /* Site name inline editing */
+        .name-edit-wrap { display: none; align-items: center; gap: 8px; }
+        .name-edit-input { font-size: 18px; font-weight: 700; padding: 4px 10px; border: 2px solid var(--primary); border-radius: 6px; width: 260px; }
+        /* Formula inline editing */
+        .formula-edit-wrap { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 3px 0; }
+        .formula-num-input { width: 72px; padding: 2px 5px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; text-align: right; background: #eff6ff; color: #1e40af; font-weight: 600; transition: border-color 0.1s; }
+        .formula-num-input:focus { border-color: var(--primary); outline: none; background: #fff; box-shadow: 0 0 0 2px rgba(227,6,19,0.12); }
+        .formula-sep { color: #475569; font-weight: 700; font-size: 13px; padding: 0 2px; }
+        .formula-result { color: #1e40af; font-weight: 700; font-size: 11px; margin-left: 4px; white-space: nowrap; }
+
+        /* Cost summary */
+        .row-land th { border-left: 4px solid #3b82f6; }
+        .row-constr th { border-left: 4px solid #22c55e; }
+        .row-sales th { border-left: 4px solid #eab308; }
+        .row-levy th { border-left: 4px solid #a855f7; }
+        .row-incid th { border-left: 4px solid #f97316; }
+        .row-finance th { border-left: 4px solid #ef4444; }
+
+        .btn { padding: 8px 16px; border-radius: 8px; font-weight: 700; cursor: pointer; border: none; transition: 0.15s; font-size: 13px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background: var(--primary); color: #fff; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-gray { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+        .btn-gray:hover { border-color: var(--muted); color: var(--dark); }
+        .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--border); }
+        .btn-danger:hover { border-color: var(--danger); background: var(--danger); color: #fff; }
+
+        .empty-detail { padding: 30px; text-align: center; color: var(--muted); font-size: 13px; background: #f8fafc; border-radius: 8px; }
+        .items-hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
+        @media (max-width: 900px) {
+            .summary-box { grid-template-columns: 1fr 1fr; }
+            .card-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h2 class="brand" onclick="location.href='dashboard_b_workhub.html'">사업수지 <span class="accent">시뮬레이터</span> Java 운영판</h2>
+        <div style="display:flex;gap:8px">
+            <button class="btn btn-outline" onclick="location.href='dashboard_b_workhub.html'">← 대시보드로</button>
+            <button class="btn btn-primary" id="save-btn">저장</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="header-row">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+                <h1 id="site-name" style="margin:0">신규 사업지 시뮬레이션</h1>
+                <button class="btn btn-gray btn-sm" id="edit-name-btn" onclick="startEditName()">✎ 이름 수정</button>
+                <div class="name-edit-wrap" id="name-edit-wrap">
+                    <input type="text" class="name-edit-input" id="name-input" placeholder="현장명 입력">
+                    <button class="btn btn-primary btn-sm" onclick="saveName()">저장</button>
+                    <button class="btn btn-gray btn-sm" onclick="cancelEditName()">취소</button>
+                </div>
+            </div>
+            <div class="status-text" id="file-status">데이터 불러오는 중...</div>
+        </div>
+
+        <!-- KPI Summary -->
+        <div class="summary-box">
+            <div class="stat-item">
+                <div class="label">총 매출 (A)</div>
+                <div class="value" id="sum-rev">0</div>
+                <div class="sub" id="sub-rev"></div>
+            </div>
+            <div class="stat-item">
+                <div class="label">총 사업비 (B)</div>
+                <div class="value" id="sum-cost">0</div>
+                <div class="sub" id="sub-cost"></div>
+            </div>
+            <div class="stat-item highlight" id="profit-card">
+                <div class="label">세전 이익 (A-B)</div>
+                <div class="value" id="sum-profit">0</div>
+                <div class="sub" id="sub-profit"></div>
+            </div>
+            <div class="stat-item highlight" id="net-profit-card">
+                <div class="label">세후 이익 (법인세 22%)</div>
+                <div class="value" id="sum-net-profit">0</div>
+                <div class="sub" id="sub-net-profit"></div>
+            </div>
+            <div class="stat-item highlight" id="roi-card">
+                <div class="label">수익률 (ROI)</div>
+                <div class="value" id="sum-roi">0%</div>
+                <div class="sub">이익 / 매출</div>
+            </div>
+        </div>
+
+        <!-- Revenue -->
+        <div class="card">
+            <div class="card-header">
+                <h3>매출 시뮬레이션 (분양 수입)</h3>
+                <button class="btn btn-outline btn-sm" onclick="addRevRow()">+ 평형 추가</button>
+            </div>
+            <div id="rev-detail-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>타입</th>
+                            <th>전용면적(평)</th>
+                            <th>세대수</th>
+                            <th>평당가(천원)</th>
+                            <th>공급가액 합계</th>
+                            <th style="width:60px">삭제</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rev-body"></tbody>
+                </table>
+            </div>
+            <div id="rev-locked" class="empty-detail" style="margin-top:12px">
+                추출된 매출 합계 <b id="locked-rev"></b> 천원을 사용 중입니다.<br>
+                평형 시뮬레이션을 시작하려면 &ldquo;+ 평형 추가&rdquo; 버튼을 누르세요.
+            </div>
+        </div>
+
+        <!-- Tree Items with 산출내역 -->
+        <div class="card" id="items-card">
+            <div class="card-header">
+                <h3>추출 데이터 확인 — 항목 계층 및 산출내역 (천원)</h3>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <span class="status-text" id="items-count"></span>
+                    <button class="btn btn-gray btn-sm" onclick="expandAll()">전체 펼치기</button>
+                    <button class="btn btn-gray btn-sm" onclick="collapseAll()">전체 접기</button>
+                </div>
+            </div>
+            <div id="tree-wrap">
+                <p class="items-hint">
+                    ▼/▶ 버튼으로 섹션을 접고 펼칠 수 있습니다.
+                    <b>산출내역</b> 컬럼은 하위 항목에서 소계가 계산되는 과정을 보여주며, ✓는 합계 일치, ✗는 불일치를 나타냅니다.
+                </p>
+                <table class="tree-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36%;text-align:left;padding-left:12px">항목명</th>
+                            <th style="width:14%">금액 (천원)</th>
+                            <th style="width:50%;text-align:left;padding-left:8px">산출내역</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tree-tbody"></tbody>
+                </table>
+                <div id="no-tree-items" class="empty-detail" style="display:none">
+                    파일을 업로드하면 항목 계층 구조와 산출내역이 여기에 표시됩니다.
+                </div>
+            </div>
+        </div>
+
+        <!-- Cost Summary -->
+        <div class="card">
+            <div class="card-header">
+                <h3>비용 요약 — 시뮬레이션 (소계 기준)</h3>
+                <span class="status-text">직접 입력 시 해당 값을 우선 사용합니다</span>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:22%">항목</th>
+                        <th style="width:26%">추출 소계 (천원)</th>
+                        <th style="width:12%">비중</th>
+                        <th style="width:28%">시뮬레이션 직접 입력</th>
+                        <th style="width:12%">적용값</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="row-land">
+                        <th>토지비</th>
+                        <td id="auto-land">0</td>
+                        <td id="per-land">0%</td>
+                        <td><input type="text" id="in-land" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-land" style="font-weight:700">0</td>
+                    </tr>
+                    <tr class="row-constr">
+                        <th>건축비</th>
+                        <td id="auto-constr">0</td>
+                        <td id="per-constr">0%</td>
+                        <td><input type="text" id="in-constr" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-constr" style="font-weight:700">0</td>
+                    </tr>
+                    <tr class="row-sales">
+                        <th>판매비</th>
+                        <td id="auto-sales">0</td>
+                        <td id="per-sales">0%</td>
+                        <td><input type="text" id="in-sales" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-sales" style="font-weight:700">0</td>
+                    </tr>
+                    <tr class="row-levy">
+                        <th>부담금</th>
+                        <td id="auto-levy">0</td>
+                        <td id="per-levy">0%</td>
+                        <td><input type="text" id="in-levy" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-levy" style="font-weight:700">0</td>
+                    </tr>
+                    <tr class="row-incid">
+                        <th>부대비</th>
+                        <td id="auto-incid">0</td>
+                        <td id="per-incid">0%</td>
+                        <td><input type="text" id="in-incid" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-incid" style="font-weight:700">0</td>
+                    </tr>
+                    <tr class="row-finance">
+                        <th>금융비</th>
+                        <td id="auto-finance">0</td>
+                        <td id="per-finance">0%</td>
+                        <td><input type="text" id="in-finance" class="cost-input" placeholder="직접 입력"></td>
+                        <td id="final-finance" style="font-weight:700">0</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- .container -->
+
+    <script>
+    'use strict';
+
+    const params  = new URLSearchParams(window.location.search);
+    const siteId  = params.get('site');
+    let currentData = { name: '신규 현장', tree: [], rev_details: [], values: {} };
+
+    const fmt     = n => new Intl.NumberFormat().format(Math.round(n || 0));
+    const parse   = s => parseFloat(String(s).replace(/,/g, '')) || 0;
+    const fmtEok  = n => {
+        const abs = Math.abs(n || 0), sign = n < 0 ? '-' : '';
+        const v = abs / 100000;
+        return sign + (v >= 100 ? (v/100).toFixed(1) + '억' : v.toFixed(1) + '천만');
+    };
+    const escHtml = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const trunc   = (s, n) => s.length > n ? s.slice(0, n) + '…' : s;
+
+    const SECTION_ORDER  = ['land','constr','sales','levy','incid','finance'];
+
+    // ── Init ─────────────────────────────────────────────────────────
+    async function init() {
+        if (siteId) {
+            try {
+                const r = await fetch('/api/sites/' + siteId);
+                if (r.ok) {
+                    currentData = await r.json();
+                    document.getElementById('site-name').textContent = currentData.name || '현장';
+                    document.getElementById('file-status').textContent = '✓ 데이터 연동 완료';
+                } else {
+                    document.getElementById('file-status').textContent = '⚠ 데이터를 찾을 수 없습니다';
+                }
+            } catch (e) {
+                document.getElementById('file-status').textContent = '⚠ 로딩 실패';
+            }
+        } else {
+            document.getElementById('file-status').textContent = '신규 시뮬레이션';
+        }
+        render();
+    }
+
+    function render() {
+        currentData.rev_details = currentData.rev_details || [];
+        currentData.tree        = currentData.tree        || [];
+        currentData.values      = currentData.values      || {};
+        renderRevSection();
+        renderTreeSection();
+        calculate();
+    }
+
+    // ── Revenue Section ───────────────────────────────────────────────
+    function renderRevSection() {
+        const body = document.getElementById('rev-body');
+        const hasDetails = currentData.rev_details.length > 0;
+        document.getElementById('rev-detail-wrap').style.display = hasDetails ? '' : 'none';
+        document.getElementById('rev-locked').style.display      = hasDetails ? 'none' : '';
+        if (!hasDetails) {
+            document.getElementById('locked-rev').textContent = fmt(currentData.values.rev || 0);
+        }
+        body.innerHTML = '';
+        currentData.rev_details.forEach((item, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td><input type="text" value="' + escHtml(item.type || '') + '" onchange="updateRev(' + idx + ',\'type\',this.value)"></td>' +
+                '<td><input type="text" value="' + fmt(item.area)  + '" onchange="updateRev(' + idx + ',\'area\',this.value)"></td>' +
+                '<td><input type="text" value="' + fmt(item.units) + '" onchange="updateRev(' + idx + ',\'units\',this.value)"></td>' +
+                '<td><input type="text" value="' + fmt(item.price) + '" onchange="updateRev(' + idx + ',\'price\',this.value)"></td>' +
+                '<td style="background:#f8fafc;font-weight:700">' + fmt(item.total) + '</td>' +
+                '<td style="text-align:center"><button class="btn btn-danger btn-sm" onclick="delRevRow(' + idx + ')">삭제</button></td>';
+            body.appendChild(tr);
+        });
+    }
+    function updateRev(idx, key, val) {
+        const item = currentData.rev_details[idx];
+        if (key === 'type') item.type = val; else item[key] = parse(val);
+        item.total = (item.area || 0) * (item.units || 0) * (item.price || 0);
+        renderRevSection(); calculate();
+    }
+    function addRevRow() {
+        currentData.rev_details.push({ type: '신규', area: 0, units: 0, price: 0, total: 0 });
+        render();
+    }
+    function delRevRow(idx) { currentData.rev_details.splice(idx, 1); render(); }
+
+    // ── Tree Section ──────────────────────────────────────────────────
+    let _nodeSeq = 0;
+    const nodeRegistry = new Map(); // nodeId → { node, parentId }
+
+    function renderTreeSection() {
+        const tbody = document.getElementById('tree-tbody');
+        tbody.innerHTML = '';
+        _nodeSeq = 0;
+        nodeRegistry.clear();
+        const tree = currentData.tree || [];
+
+        if (tree.length === 0) {
+            document.getElementById('no-tree-items').style.display = '';
+            document.getElementById('items-count').textContent = '';
+            return;
+        }
+        document.getElementById('no-tree-items').style.display = 'none';
+
+        let total = 0;
+        tree.forEach(nd => { total += countNodes(nd); });
+        document.getElementById('items-count').textContent = total + '개 항목';
+
+        tree.forEach(nd => renderNode(nd, 0, tbody, null));
+    }
+
+    function countNodes(node) {
+        return 1 + (node.children || []).reduce((s, c) => s + countNodes(c), 0);
+    }
+
+    function renderNode(node, depth, tbody, parentId) {
+        const myId = 'nd' + (_nodeSeq++);
+        nodeRegistry.set(myId, { node, parentId });
+        const children = node.children || [];
+        const hasKids  = children.length > 0;
+        const eff      = node.effective || 0;
+
+        // Row class
+        let cls;
+        if      (node.type === 'total')    cls = 'row-total';
+        else if (node.type === 'subtotal') cls = 'row-subtotal';
+        else if (depth === 0)              cls = 'row-toplevel';
+        else if (depth === 1 && hasKids)   cls = 'row-section-mid';
+        else if (depth >= 2 && hasKids)    cls = 'row-section-3';
+        else                               cls = 'row-item';
+
+        const tr = document.createElement('tr');
+        tr.className     = cls;
+        tr.dataset.nodeId = myId;
+        if (parentId) tr.dataset.parentId = parentId;
+
+        const pad    = 8 + depth * 18;
+        const togBtn = hasKids
+            ? `<span class="toggle-btn expanded" onclick="toggleNode('${myId}',this)">▼</span>`
+            : '<span class="toggle-spacer"></span>';
+
+        let calcHTML = '';
+        if (hasKids)          calcHTML = buildCalcHTML(node);
+        else if (node.formula) calcHTML = buildFormulaHTML(node.formula, myId);
+
+        tr.innerHTML =
+            `<td class="td-label" style="padding-left:${pad}px">${togBtn}${escHtml(node.label)}</td>` +
+            `<td style="white-space:nowrap">${eff > 0 ? fmt(eff) : '-'}</td>` +
+            `<td class="td-calc" style="padding:6px 10px">${calcHTML}</td>`;
+
+        tbody.appendChild(tr);
+        children.forEach(c => renderNode(c, depth + 1, tbody, myId));
+    }
+
+    function buildCalcHTML(node) {
+        const children = node.children || [];
+        const items    = children.filter(c => c.type !== 'subtotal' && c.type !== 'total');
+        const subs     = children.filter(c => c.type === 'subtotal' || c.type === 'total');
+        if (items.length === 0) return '';
+
+        const computedSum = items.reduce((s, c) => s + (c.effective || 0), 0);
+        const expectedSum = subs.length > 0 ? (subs[subs.length - 1].effective || 0) : (node.effective || 0);
+        const hasVerify   = subs.length > 0;
+        const isMatch     = hasVerify && Math.abs(computedSum - expectedSum) <= 1;
+
+        const MAX = 7;
+        const show   = items.slice(0, MAX);
+        const rest   = items.length - MAX;
+
+        let html = '<div class="calc-formula">';
+
+        show.forEach(c => {
+            html +=
+                `<span class="calc-item-line">` +
+                `<span class="ci-name">${escHtml(trunc(c.label, 18))}</span>` +
+                ` <span class="ci-amt">${fmt(c.effective || 0)}원</span>` +
+                `</span>`;
+        });
+
+        if (rest > 0) {
+            html += `<span class="calc-item-line"><span class="ci-name">+ 외 ${rest}개 항목</span></span>`;
+        }
+
+        if (hasVerify) {
+            const verifyMark  = isMatch ? '<span class="verify-ok">✓</span>' : '<span class="verify-fail">✗</span>';
+            const mismatchMsg = !isMatch
+                ? `<span class="verify-note">계산값 ${fmt(computedSum)} ≠ 소계 ${fmt(expectedSum)}</span>`
+                : '';
+            html +=
+                `<span class="calc-sum-line">` +
+                `<span class="ci-name">소 계${verifyMark}</span>` +
+                ` <span class="ci-amt">${fmt(expectedSum)}원</span>` +
+                mismatchMsg +
+                `</span>`;
+        } else {
+            html +=
+                `<span class="calc-sum-line">` +
+                `<span class="ci-name">합 계</span>` +
+                ` <span class="ci-amt">${fmt(computedSum)}원</span></span>`;
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function buildFormulaHTML(formula, nodeId) {
+        const parts = formula.split('×').map(p => p.trim());
+        const nums  = parts.map(p => parseFloat(p.replace(/,/g, '')));
+        if (!nodeId || nums.some(isNaN)) {
+            return `<div class="calc-formula">` +
+                `<span class="calc-sum-line" style="border-top:none;padding-top:0">` +
+                `<span class="ci-name" style="color:#1e40af;font-weight:600">${escHtml(formula)}</span>` +
+                `<span class="calc-clearfix"></span></span></div>`;
+        }
+        const product = nums.reduce((a, b) => a * b, 1);
+        let html = `<div class="formula-edit-wrap">`;
+        parts.forEach((p, i) => {
+            html += `<input class="formula-num-input" data-node="${nodeId}" data-idx="${i}" value="${p.replace(/,/g,'')}" oninput="onFormulaChange('${nodeId}')">`;
+            if (i < parts.length - 1) html += `<span class="formula-sep">×</span>`;
+        });
+        html += `<span class="formula-result" id="fresult-${nodeId}"> = ${fmt(product)}원</span>`;
+        html += `</div>`;
+        return html;
+    }
+
+    // ── Toggle collapse ───────────────────────────────────────────────
+    function toggleNode(nodeId, btn) {
+        const hide = btn.classList.contains('expanded');
+        btn.classList.toggle('expanded', !hide);
+        btn.textContent = hide ? '▶' : '▼';
+        toggleDescendants(nodeId, hide);
+    }
+
+    function toggleDescendants(nodeId, hide) {
+        document.querySelectorAll(`[data-parent-id="${nodeId}"]`).forEach(row => {
+            row.style.display = hide ? 'none' : '';
+            toggleDescendants(row.dataset.nodeId, hide);
+        });
+    }
+
+    function expandAll() {
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.add('expanded');
+            btn.textContent = '▼';
+        });
+        document.querySelectorAll('#tree-tbody tr').forEach(row => row.style.display = '');
+    }
+
+    function collapseAll() {
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
+            btn.classList.remove('expanded');
+            btn.textContent = '▶';
+        });
+        // Hide everything except depth-0 rows
+        document.querySelectorAll('#tree-tbody tr[data-parent-id]').forEach(row => {
+            row.style.display = 'none';
+        });
+    }
+
+    // ── Formula editing ───────────────────────────────────────────────
+    function onFormulaChange(nodeId) {
+        const inputs = document.querySelectorAll(`.formula-num-input[data-node="${nodeId}"]`);
+        let product = 1;
+        inputs.forEach(inp => {
+            const v = parseFloat(String(inp.value).replace(/,/g, ''));
+            if (!isNaN(v) && v !== 0) product *= v;
+        });
+        const entry = nodeRegistry.get(nodeId);
+        if (entry) { entry.node.effective = Math.round(product); entry.node.amount = Math.round(product); }
+        const resultEl = document.getElementById('fresult-' + nodeId);
+        if (resultEl) resultEl.textContent = ' = ' + fmt(product) + '원';
+        const row = document.querySelector(`[data-node-id="${nodeId}"]`);
+        if (row) row.cells[1].textContent = fmt(product);
+        if (entry?.parentId) recalcUpwards(entry.parentId);
+        calculate();
+    }
+
+    function recalcUpwards(parentId) {
+        if (!parentId) return;
+        const entry = nodeRegistry.get(parentId);
+        if (!entry) return;
+        const parent = entry.node;
+        const items  = (parent.children || []).filter(c => c.type !== 'subtotal' && c.type !== 'total');
+        const newEff = items.reduce((s, c) => s + (c.effective || 0), 0);
+        parent.effective = newEff;
+        const row = document.querySelector(`[data-node-id="${parentId}"]`);
+        if (row) {
+            row.cells[1].textContent = newEff > 0 ? fmt(newEff) : '-';
+            if (row.cells[2]) row.cells[2].innerHTML = buildCalcHTML(parent);
+        }
+        if (entry.parentId) recalcUpwards(entry.parentId);
+    }
+
+    // ── Site name editing ─────────────────────────────────────────────
+    function startEditName() {
+        document.getElementById('name-input').value = currentData.name || '';
+        document.getElementById('site-name').style.display = 'none';
+        document.getElementById('edit-name-btn').style.display = 'none';
+        document.getElementById('name-edit-wrap').style.display = 'flex';
+        document.getElementById('name-input').focus();
+    }
+
+    function cancelEditName() {
+        document.getElementById('site-name').style.display = '';
+        document.getElementById('edit-name-btn').style.display = '';
+        document.getElementById('name-edit-wrap').style.display = 'none';
+    }
+
+    async function saveName() {
+        const newName = document.getElementById('name-input').value.trim();
+        if (!newName) { alert('현장명을 입력하세요.'); return; }
+        if (siteId) {
+            try {
+                const r = await fetch(`/api/sites/${siteId}/name`, {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const j = await r.json();
+                if (!j.success) { alert('저장 실패: ' + (j.error || '')); return; }
+            } catch (e) { alert('서버 통신 오류'); return; }
+        }
+        currentData.name = newName;
+        document.getElementById('site-name').textContent = newName;
+        cancelEditName();
+    }
+
+    // ── Calculate & KPI ──────────────────────────────────────────────
+    function calculate() {
+        const vals = currentData.values || {};
+
+        const rev_from_details = (currentData.rev_details || []).reduce((s, i) => s + (i.total || 0), 0);
+        const rev_total = (currentData.rev_details || []).length > 0
+            ? rev_from_details : (vals.rev || 0);
+
+        // Base section values from extraction
+        const base = {
+            land:    vals.land    || 0,
+            constr:  vals.constr  || 0,
+            sales:   vals.sales   || 0,
+            levy:    vals.levy    || 0,
+            incid:   vals.incid   || 0,
+            finance: vals.finance || 0,
+        };
+
+        // Update auto cells
+        SECTION_ORDER.forEach(sec => {
+            const el = document.getElementById('auto-' + sec);
+            if (el) el.textContent = fmt(base[sec]);
+        });
+
+        // Override inputs take precedence when non-empty
+        const final = {};
+        SECTION_ORDER.forEach(sec => {
+            const v = parse(document.getElementById('in-' + sec).value);
+            final[sec] = v > 0 ? v : base[sec];
+            const fel = document.getElementById('final-' + sec);
+            if (fel) fel.textContent = fmt(final[sec]);
+        });
+
+        const cost_total = SECTION_ORDER.reduce((s, sec) => s + final[sec], 0);
+        const profit     = rev_total - cost_total;
+        const net_profit = Math.round(profit * (1 - 0.22));
+        const roi        = rev_total > 0 ? (profit / rev_total * 100) : 0;
+
+        document.getElementById('sum-rev').textContent        = fmt(rev_total);
+        document.getElementById('sub-rev').textContent        = '≈ ' + fmtEok(rev_total);
+        document.getElementById('sum-cost').textContent       = fmt(cost_total);
+        document.getElementById('sub-cost').textContent       = '≈ ' + fmtEok(cost_total);
+        document.getElementById('sum-profit').textContent     = fmt(profit);
+        document.getElementById('sub-profit').textContent     = '≈ ' + fmtEok(profit);
+        document.getElementById('sum-net-profit').textContent = fmt(net_profit);
+        document.getElementById('sub-net-profit').textContent = '≈ ' + fmtEok(net_profit);
+        document.getElementById('sum-roi').textContent        = roi.toFixed(2) + '%';
+
+        document.getElementById('profit-card').classList.toggle('negative', profit < 0);
+        document.getElementById('net-profit-card').classList.toggle('negative', net_profit < 0);
+        document.getElementById('roi-card').classList.toggle('negative', roi < 0);
+
+        const setPer = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = cost_total > 0 ? (val / cost_total * 100).toFixed(1) + '%' : '0%';
+        };
+        SECTION_ORDER.forEach(sec => setPer('per-' + sec, final[sec]));
+
+        currentData.values = { ...currentData.values, rev: rev_total, cost: cost_total, profit, roi: parseFloat(roi.toFixed(2)), ...final };
+    }
+
+    document.querySelectorAll('.cost-input').forEach(el => { el.oninput = calculate; });
+
+    // ── Save ─────────────────────────────────────────────────────────
+    document.getElementById('save-btn').onclick = async () => {
+        let id = siteId;
+        if (!id) {
+            const name = prompt('현장명을 입력하세요:', currentData.name);
+            if (!name) return;
+            currentData.name = name;
+            id = Date.now().toString();
+        }
+        currentData.id = id;
+        const r = await fetch('/api/save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, data: currentData })
+        });
+        const j = await r.json();
+        if (j.success) alert('저장되었습니다.');
+        else alert('저장 실패: ' + (j.error || ''));
+    };
+
+    init();
+    </script>
+</body>
+</html>
