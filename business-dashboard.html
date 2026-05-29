@@ -1,0 +1,897 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>사업수지 대시보드</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --ink: #1d2433;
+      --line: #d5ddeb;
+      --primary: #0f766e;
+      --primary-light: #e6f4f3;
+      --primary-ink: #ffffff;
+      --card: #ffffff;
+      --muted: #64748b;
+      --profit: #0f766e;
+      --loss: #b91c1c;
+      --warn: #d97706;
+      --stage-예상: #6366f1;
+      --stage-실행: #0f766e;
+      --stage-정산: #d97706;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Noto Sans KR", "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); min-height: 100vh; }
+
+    .header {
+      background: var(--card); border-bottom: 1px solid var(--line);
+      padding: 14px 24px; display: flex; align-items: center;
+      justify-content: space-between; gap: 12px; position: sticky; top: 0; z-index: 10;
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .back-btn { background: none; border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: var(--muted); }
+    .back-btn:hover { border-color: var(--primary); color: var(--primary); }
+    .header h1 { font-size: 18px; font-weight: 800; }
+    .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .filter-group { display: flex; align-items: center; gap: 6px; }
+    .filter-group label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    select, .btn { height: 34px; border: 1px solid var(--line); border-radius: 6px; padding: 0 12px; font-size: 13px; background: #fff; color: var(--ink); cursor: pointer; }
+    select:focus { outline: none; border-color: var(--primary); }
+    .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .btn.primary:hover { opacity: .9; }
+    .btn.outline-primary { border-color: var(--primary); color: var(--primary); }
+    .btn.danger-outline { border-color: #b91c1c; color: #b91c1c; }
+
+    /* 업로드 패널 */
+    .upload-panel {
+      background: #fff; border-bottom: 1px solid var(--line); padding: 16px 24px;
+      display: none;
+    }
+    .upload-panel.open { display: block; }
+    .upload-inner { max-width: 900px; }
+    .upload-inner h3 { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+    .upload-grid { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; }
+    .drop-zone {
+      border: 2px dashed var(--line); border-radius: 8px; padding: 24px 20px;
+      text-align: center; cursor: pointer; position: relative; transition: border-color .2s;
+      background: #fafcff; color: var(--muted); font-size: 14px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: var(--primary); background: var(--primary-light); }
+    .drop-zone input[type="file"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .drop-zone .drop-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+    .upload-side { display: flex; flex-direction: column; gap: 8px; min-width: 160px; }
+    .upload-format {
+      margin-top: 12px; padding: 10px 14px; background: #f8fbff;
+      border: 1px solid var(--line); border-radius: 6px; font-size: 12px;
+    }
+    .upload-format strong { display: block; margin-bottom: 4px; color: var(--ink); }
+    .upload-format p { color: var(--muted); line-height: 1.6; margin: 0; }
+    .source-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+    }
+    .source-badge.mock { background: #f1f5f9; color: var(--muted); }
+    .source-badge.upload { background: var(--primary-light); color: var(--primary); }
+    .upload-msg { font-size: 12px; margin-top: 8px; }
+    .upload-msg.ok { color: var(--profit); }
+    .upload-msg.err { color: var(--loss); }
+
+    /* 메인 */
+    .main { padding: 20px 24px 40px; max-width: 1600px; margin: 0 auto; }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+    .kpi-card .label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .kpi-card .value { font-size: 26px; font-weight: 800; line-height: 1; }
+    .kpi-card .delta { font-size: 12px; margin-top: 6px; }
+    .delta.up { color: var(--profit); }
+    .delta.down { color: var(--loss); }
+    .delta.neutral { color: var(--muted); }
+    .kpi-card.accent { border-color: var(--primary); background: var(--primary-light); }
+    .kpi-card.accent .value { color: var(--primary); }
+
+    .section-card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--primary-light); color: var(--primary); }
+
+    .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .data-table th { background: #f8fbff; color: var(--muted); font-weight: 600; padding: 9px 10px; border-bottom: 2px solid var(--line); text-align: right; white-space: nowrap; }
+    .data-table th:first-child { text-align: left; }
+    .data-table td { padding: 10px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+    .data-table td:first-child { text-align: left; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr.total-row td { background: #f8fbff; font-weight: 700; border-top: 2px solid var(--line); border-bottom: none; }
+    .data-table tr:hover:not(.total-row) td { background: #fafcff; }
+    .site-link { color: var(--primary); font-weight: 700; text-decoration: none; cursor: pointer; }
+    .site-link:hover { text-decoration: underline; }
+
+    .profit { color: var(--profit); font-weight: 700; }
+    .loss { color: var(--loss); font-weight: 700; }
+    .warn { color: var(--warn); }
+    .stage-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+    .dot-예상 { background: var(--stage-예상); }
+    .dot-실행 { background: var(--stage-실행); }
+    .dot-정산 { background: var(--stage-정산); }
+
+    .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .chart-wrap { position: relative; height: 280px; }
+
+    .stage-compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .stage-compare-table th { padding: 8px 10px; font-size: 12px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--line); background: #f8fbff; }
+    .stage-compare-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 13px; text-align: right; }
+    .stage-compare-table td:first-child { text-align: left; font-weight: 600; }
+    .stage-compare-table tr:last-child td { border-bottom: none; }
+
+    .tab-row { display: flex; gap: 4px; margin-bottom: 14px; }
+    .tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--line); background: #fff; color: var(--muted); transition: all .15s; }
+    .tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+    .progress-bar-wrap { display: flex; align-items: center; gap: 8px; }
+    .progress-bar { flex: 1; height: 6px; background: var(--line); border-radius: 999px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 999px; }
+    .fill-profit { background: var(--profit); }
+    .fill-loss { background: var(--loss); }
+    .fill-warn { background: var(--warn); }
+
+    @media (max-width: 1100px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } .bottom-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 640px) { .header { flex-direction: column; align-items: flex-start; } .main { padding: 12px 12px 40px; } }
+  </style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <button class="back-btn" onclick="history.back()">← 포털로</button>
+    <div>
+      <h1>사업수지 대시보드</h1>
+      <div class="header-sub" id="lastUpdated">데이터 기준: —</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="filter-group">
+      <label>기준연도</label>
+      <select id="filterYear">
+        <option value="2026">2026년</option>
+        <option value="2025" selected>2025년</option>
+        <option value="2024">2024년</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label>현장</label>
+      <select id="filterSite"><option value="all">전체 현장</option></select>
+    </div>
+    <button class="btn outline-primary" id="uploadToggleBtn">엑셀 업로드</button>
+    <button class="btn primary" id="refreshBtn">새로고침</button>
+  </div>
+</header>
+
+<!-- 업로드 패널 -->
+<div class="upload-panel" id="uploadPanel">
+  <div class="upload-inner">
+    <h3>사업수지 엑셀 업로드 <span id="sourceBadge" class="source-badge mock">목업 데이터 사용 중</span></h3>
+    <div class="upload-grid">
+      <div>
+        <div class="drop-zone" id="dropZone">
+          <span class="drop-icon">📂</span>
+          엑셀 파일을 드래그하거나 클릭하여 선택하세요<br>
+          <small style="margin-top:4px;display:block;">지원 형식: .xlsx, .xls</small>
+          <input type="file" accept=".xlsx,.xls" id="excelFileInput" />
+        </div>
+        <div id="uploadMsg" class="upload-msg"></div>
+        <div class="upload-format">
+          <strong>엑셀 형식 안내</strong>
+          <p>
+            <b>시트명:</b> <code>사업수지</code> — 컬럼: 현장코드 | 현장명 | 구분(수입/지출) | 항목명 | 예상 | 실행 | 정산<br>
+            <b>시트명:</b> <code>월별</code> (선택) — 컬럼: 현장코드 | 현장명 | 연월(YYYY-MM) | 수입 | 지출
+          </p>
+        </div>
+      </div>
+      <div class="upload-side">
+        <button class="btn outline-primary" id="downloadTemplateBtn">템플릿 다운로드</button>
+        <button class="btn danger-outline" id="clearDataBtn">업로드 데이터 초기화</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main class="main">
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi-card" style="height:90px"></div>
+    <div class="kpi-card" style="height:90px"></div>
+    <div class="kpi-card" style="height:90px"></div>
+    <div class="kpi-card" style="height:90px"></div>
+  </div>
+
+  <div class="section-card">
+    <div class="section-header">
+      <div class="section-title">현장별 사업수지 현황 <span class="badge" id="siteCount">—</span></div>
+      <div style="font-size:12px;color:var(--muted)">단위: 백만원 | 현장명 클릭 시 상세 보기</div>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="data-table" id="siteTable">
+        <thead>
+          <tr>
+            <th style="min-width:130px">현장명</th>
+            <th><span class="stage-dot dot-예상"></span>예상 수입</th>
+            <th><span class="stage-dot dot-실행"></span>실행 수입</th>
+            <th><span class="stage-dot dot-정산"></span>정산 수입</th>
+            <th><span class="stage-dot dot-예상"></span>예상 지출</th>
+            <th><span class="stage-dot dot-실행"></span>실행 지출</th>
+            <th><span class="stage-dot dot-정산"></span>정산 지출</th>
+            <th>손익 (정산)</th>
+            <th>원가율</th>
+            <th>달성률</th>
+          </tr>
+        </thead>
+        <tbody id="siteTableBody">
+          <tr><td colspan="10" style="text-align:center;padding:24px;color:var(--muted)">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">월별 손익 추이</div>
+        <div class="tab-row">
+          <button class="tab active" data-chart="profit">손익</button>
+          <button class="tab" data-chart="cost-rate">원가율</button>
+          <button class="tab" data-chart="income-expense">수입/지출</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-header">
+        <div class="section-title">예상 / 실행 / 정산 단계 비교</div>
+        <div style="font-size:12px;color:var(--muted)">단위: 백만원</div>
+      </div>
+      <table class="stage-compare-table">
+        <thead>
+          <tr>
+            <th>구분</th>
+            <th><span class="stage-dot dot-예상"></span>예상</th>
+            <th><span class="stage-dot dot-실행"></span>실행</th>
+            <th><span class="stage-dot dot-정산"></span>정산</th>
+            <th>예상 대비</th>
+          </tr>
+        </thead>
+        <tbody id="stageTableBody">
+          <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted)">불러오는 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+// ─────────────────────────────────────────────────────
+// 목업 데이터 (실배포 시 API 호출로 교체)
+// site.income[단계].total = 합계, .items = 항목별 배열
+// ─────────────────────────────────────────────────────
+const MOCK_DATA = {
+  "2025": {
+    updatedAt: "2025-12-31 기준", source: "mock",
+    sites: [
+      {
+        id: "S001", name: "A현장 (서울)",
+        income: {
+          예상: { total: 12400, items: [{name:"분양수입",amount:12000},{name:"기타수입",amount:400}] },
+          실행: { total: 11800, items: [{name:"분양수입",amount:11400},{name:"기타수입",amount:400}] },
+          정산: { total: 11500, items: [{name:"분양수입",amount:11100},{name:"기타수입",amount:400}] }
+        },
+        expense: {
+          예상: { total: 8700, items: [{name:"공사비",amount:7000},{name:"설계비",amount:500},{name:"분양비",amount:700},{name:"기타",amount:500}] },
+          실행: { total: 8500, items: [{name:"공사비",amount:6800},{name:"설계비",amount:500},{name:"분양비",amount:700},{name:"기타",amount:500}] },
+          정산: { total: 8400, items: [{name:"공사비",amount:6700},{name:"설계비",amount:500},{name:"분양비",amount:700},{name:"기타",amount:500}] }
+        }
+      },
+      {
+        id: "S002", name: "B현장 (경기)",
+        income: {
+          예상: { total: 9200, items: [{name:"분양수입",amount:8800},{name:"임대수입",amount:400}] },
+          실행: { total: 9000, items: [{name:"분양수입",amount:8600},{name:"임대수입",amount:400}] },
+          정산: { total: 8900, items: [{name:"분양수입",amount:8500},{name:"임대수입",amount:400}] }
+        },
+        expense: {
+          예상: { total: 7800, items: [{name:"공사비",amount:6300},{name:"설계비",amount:400},{name:"분양비",amount:600},{name:"기타",amount:500}] },
+          실행: { total: 7700, items: [{name:"공사비",amount:6200},{name:"설계비",amount:400},{name:"분양비",amount:600},{name:"기타",amount:500}] },
+          정산: { total: 7900, items: [{name:"공사비",amount:6400},{name:"설계비",amount:400},{name:"분양비",amount:600},{name:"기타",amount:500}] }
+        }
+      },
+      {
+        id: "S003", name: "C현장 (인천)",
+        income: {
+          예상: { total: 6100, items: [{name:"분양수입",amount:6100}] },
+          실행: { total: 5900, items: [{name:"분양수입",amount:5900}] },
+          정산: { total: 6100, items: [{name:"분양수입",amount:6100}] }
+        },
+        expense: {
+          예상: { total: 6600, items: [{name:"공사비",amount:5500},{name:"설계비",amount:300},{name:"기타",amount:800}] },
+          실행: { total: 6500, items: [{name:"공사비",amount:5400},{name:"설계비",amount:300},{name:"기타",amount:800}] },
+          정산: { total: 6800, items: [{name:"공사비",amount:5700},{name:"설계비",amount:300},{name:"기타",amount:800}] }
+        }
+      },
+      {
+        id: "S004", name: "D현장 (부산)",
+        income: {
+          예상: { total: 15800, items: [{name:"분양수입",amount:15000},{name:"기타수입",amount:800}] },
+          실행: { total: 15200, items: [{name:"분양수입",amount:14400},{name:"기타수입",amount:800}] },
+          정산: { total: 14900, items: [{name:"분양수입",amount:14100},{name:"기타수입",amount:800}] }
+        },
+        expense: {
+          예상: { total: 10200, items: [{name:"공사비",amount:8500},{name:"설계비",amount:600},{name:"분양비",amount:700},{name:"기타",amount:400}] },
+          실행: { total: 10500, items: [{name:"공사비",amount:8800},{name:"설계비",amount:600},{name:"분양비",amount:700},{name:"기타",amount:400}] },
+          정산: { total: 10300, items: [{name:"공사비",amount:8600},{name:"설계비",amount:600},{name:"분양비",amount:700},{name:"기타",amount:400}] }
+        }
+      },
+      {
+        id: "S005", name: "E현장 (대전)",
+        income: {
+          예상: { total: 8300, items: [{name:"분양수입",amount:8000},{name:"기타수입",amount:300}] },
+          실행: { total: 7900, items: [{name:"분양수입",amount:7600},{name:"기타수입",amount:300}] },
+          정산: { total: 7800, items: [{name:"분양수입",amount:7500},{name:"기타수입",amount:300}] }
+        },
+        expense: {
+          예상: { total: 6100, items: [{name:"공사비",amount:5000},{name:"설계비",amount:400},{name:"분양비",amount:400},{name:"기타",amount:300}] },
+          실행: { total: 6300, items: [{name:"공사비",amount:5200},{name:"설계비",amount:400},{name:"분양비",amount:400},{name:"기타",amount:300}] },
+          정산: { total: 6200, items: [{name:"공사비",amount:5100},{name:"설계비",amount:400},{name:"분양비",amount:400},{name:"기타",amount:300}] }
+        }
+      }
+    ],
+    monthly: [
+      {month:"1월",income:4100,expense:3200},{month:"2월",income:4400,expense:3100},
+      {month:"3월",income:5200,expense:3800},{month:"4월",income:4800,expense:3600},
+      {month:"5월",income:5500,expense:3900},{month:"6월",income:6200,expense:4400},
+      {month:"7월",income:5800,expense:4200},{month:"8월",income:6400,expense:4700},
+      {month:"9월",income:7100,expense:5000},{month:"10월",income:6900,expense:4900},
+      {month:"11월",income:7500,expense:5300},{month:"12월",income:8800,expense:6200}
+    ]
+  },
+  "2026": {
+    updatedAt: "2026-05-29 기준", source: "mock",
+    sites: [
+      {
+        id: "S001", name: "A현장 (서울)",
+        income: {
+          예상: { total: 13200, items: [{name:"분양수입",amount:12800},{name:"기타수입",amount:400}] },
+          실행: { total: 12100, items: [{name:"분양수입",amount:11700},{name:"기타수입",amount:400}] },
+          정산: { total: null, items: [] }
+        },
+        expense: {
+          예상: { total: 9100, items: [{name:"공사비",amount:7500},{name:"설계비",amount:600},{name:"분양비",amount:600},{name:"기타",amount:400}] },
+          실행: { total: 8800, items: [{name:"공사비",amount:7200},{name:"설계비",amount:600},{name:"분양비",amount:600},{name:"기타",amount:400}] },
+          정산: { total: null, items: [] }
+        }
+      },
+      {
+        id: "S004", name: "D현장 (부산)",
+        income: {
+          예상: { total: 17000, items: [{name:"분양수입",amount:16200},{name:"기타수입",amount:800}] },
+          실행: { total: 15800, items: [{name:"분양수입",amount:15000},{name:"기타수입",amount:800}] },
+          정산: { total: null, items: [] }
+        },
+        expense: {
+          예상: { total: 11000, items: [{name:"공사비",amount:9200},{name:"설계비",amount:700},{name:"분양비",amount:700},{name:"기타",amount:400}] },
+          실행: { total: 11200, items: [{name:"공사비",amount:9400},{name:"설계비",amount:700},{name:"분양비",amount:700},{name:"기타",amount:400}] },
+          정산: { total: null, items: [] }
+        }
+      }
+    ],
+    monthly: [
+      {month:"1월",income:4800,expense:3500},{month:"2월",income:5100,expense:3700},
+      {month:"3월",income:5600,expense:4100},{month:"4월",income:6200,expense:4500},
+      {month:"5월",income:5900,expense:4200}
+    ]
+  },
+  "2024": {
+    updatedAt: "2024-12-31 기준", source: "mock",
+    sites: [
+      {
+        id: "S001", name: "A현장 (서울)",
+        income: {
+          예상: { total: 11000, items: [{name:"분양수입",amount:10600},{name:"기타수입",amount:400}] },
+          실행: { total: 10800, items: [{name:"분양수입",amount:10400},{name:"기타수입",amount:400}] },
+          정산: { total: 10600, items: [{name:"분양수입",amount:10200},{name:"기타수입",amount:400}] }
+        },
+        expense: {
+          예상: { total: 8000, items: [{name:"공사비",amount:6500},{name:"설계비",amount:500},{name:"기타",amount:1000}] },
+          실행: { total: 7900, items: [{name:"공사비",amount:6400},{name:"설계비",amount:500},{name:"기타",amount:1000}] },
+          정산: { total: 7800, items: [{name:"공사비",amount:6300},{name:"설계비",amount:500},{name:"기타",amount:1000}] }
+        }
+      }
+    ],
+    monthly: [
+      {month:"1월",income:3200,expense:2600},{month:"2월",income:3400,expense:2700},
+      {month:"3월",income:3800,expense:3000},{month:"4월",income:3600,expense:2900},
+      {month:"5월",income:4100,expense:3200},{month:"6월",income:4500,expense:3600},
+      {month:"7월",income:4300,expense:3400},{month:"8월",income:4800,expense:3700},
+      {month:"9월",income:5200,expense:4000},{month:"10월",income:5000,expense:3900},
+      {month:"11월",income:5500,expense:4200},{month:"12월",income:6200,expense:4800}
+    ]
+  }
+};
+
+// ─────────────────────────────────────────────────────
+// 유틸
+// ─────────────────────────────────────────────────────
+const fmt     = v => v == null ? "—" : Number(v).toLocaleString("ko-KR");
+const fmtRate = v => v == null ? "—" : v.toFixed(1) + "%";
+const sign    = v => v >= 0 ? "+" : "";
+const pClass  = v => v == null ? "" : v >= 0 ? "profit" : "loss";
+
+function getTotal(stageData) {
+  if (stageData == null) return null;
+  if (typeof stageData === "object") return stageData.total ?? null;
+  return stageData;
+}
+
+function sumStage(sites, stage, field) {
+  return sites.reduce((acc, s) => {
+    const v = getTotal(s[field][stage]);
+    return v != null ? acc + v : acc;
+  }, 0);
+}
+
+function calcSite(site) {
+  const res = {};
+  ["예상","실행","정산"].forEach(s => {
+    const inc = getTotal(site.income[s]);
+    const exp = getTotal(site.expense[s]);
+    res[s] = { income: inc, expense: exp,
+      profit:   inc != null && exp != null ? inc - exp : null,
+      costRate: inc != null && inc > 0 && exp != null ? (exp / inc) * 100 : null
+    };
+  });
+  const base   = getTotal(site.income["예상"]);
+  const actual = getTotal(site.income["정산"]) ?? getTotal(site.income["실행"]);
+  res.achievement = base && actual && base > 0 ? (actual / base) * 100 : null;
+  return res;
+}
+
+// ─────────────────────────────────────────────────────
+// localStorage 저장소
+// ─────────────────────────────────────────────────────
+function saveUploaded(year, data) {
+  try { localStorage.setItem("biz_upload_" + year, JSON.stringify(data)); } catch(e) {}
+}
+function loadUploaded(year) {
+  try {
+    const raw = localStorage.getItem("biz_upload_" + year);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+function clearUploaded(year) {
+  localStorage.removeItem("biz_upload_" + year);
+}
+function getData(year) {
+  return loadUploaded(year) || MOCK_DATA[year] || null;
+}
+
+// ─────────────────────────────────────────────────────
+// Excel 파싱
+// ─────────────────────────────────────────────────────
+function findColIdx(headers, keywords) {
+  return headers.findIndex(h => h != null && keywords.some(k => String(h).trim().includes(k)));
+}
+
+function parseExcel(file, year) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: "array" });
+
+      // ── 사업수지 시트 파싱
+      const sheetName = wb.SheetNames.find(n => n.includes("사업수지") || n.includes("수지")) || wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+      const headerRow = rows[0] || [];
+      const cId   = findColIdx(headerRow, ["코드","현장코드"]);
+      const cName = findColIdx(headerRow, ["현장명","현장"]);
+      const cType = findColIdx(headerRow, ["구분"]);
+      const cItem = findColIdx(headerRow, ["항목"]);
+      const c예상  = findColIdx(headerRow, ["예상"]);
+      const c실행  = findColIdx(headerRow, ["실행"]);
+      const c정산  = findColIdx(headerRow, ["정산"]);
+
+      if (cName < 0 || cType < 0) {
+        showUploadMsg("현장명 또는 구분 컬럼을 찾을 수 없습니다. 템플릿 형식을 확인해주세요.", "err");
+        return;
+      }
+
+      const siteMap = {};
+      rows.slice(1).forEach(row => {
+        if (!row[cName]) return;
+        const rawId   = cId >= 0 ? String(row[cId] || "").trim() : null;
+        const name    = String(row[cName]).trim();
+        const siteId  = rawId || "S_" + name.replace(/\s/g,"_");
+        const type    = String(row[cType] || "").trim();
+        const item    = cItem >= 0 ? String(row[cItem] || "기타").trim() : "기타";
+        const v예상   = row[c예상] != null ? Number(row[c예상]) : null;
+        const v실행   = row[c실행] != null ? Number(row[c실행]) : null;
+        const v정산   = row[c정산] != null ? Number(row[c정산]) : null;
+
+        if (!siteMap[siteId]) {
+          siteMap[siteId] = {
+            id: siteId, name,
+            income:  { 예상:{total:0,items:[]}, 실행:{total:0,items:[]}, 정산:{total:0,items:[]} },
+            expense: { 예상:{total:0,items:[]}, 실행:{total:0,items:[]}, 정산:{total:0,items:[]} }
+          };
+        }
+        const s = siteMap[siteId];
+        const field = type.includes("수입") ? "income" : "expense";
+        ["예상","실행","정산"].forEach((stage, i) => {
+          const val = [v예상, v실행, v정산][i];
+          if (val != null) {
+            s[field][stage].total += val;
+            s[field][stage].items.push({ name: item, amount: val });
+          }
+        });
+      });
+
+      // null total 처리
+      Object.values(siteMap).forEach(s => {
+        ["income","expense"].forEach(f => {
+          ["예상","실행","정산"].forEach(stage => {
+            if (s[f][stage].items.length === 0) s[f][stage].total = null;
+          });
+        });
+      });
+
+      // ── 월별 시트 파싱 (선택)
+      const monthlySheetName = wb.SheetNames.find(n => n.includes("월별") || n.includes("월간"));
+      let monthly = [];
+      if (monthlySheetName) {
+        const mws  = wb.Sheets[monthlySheetName];
+        const mrows = XLSX.utils.sheet_to_json(mws, { header: 1, defval: null });
+        const mh    = mrows[0] || [];
+        const cMon  = findColIdx(mh, ["연월","월"]);
+        const cInc  = findColIdx(mh, ["수입"]);
+        const cExp  = findColIdx(mh, ["지출","비용"]);
+        if (cMon >= 0 && cInc >= 0 && cExp >= 0) {
+          mrows.slice(1).forEach(r => {
+            if (!r[cMon]) return;
+            const inc = Number(r[cInc] || 0);
+            const exp = Number(r[cExp] || 0);
+            monthly.push({ month: String(r[cMon]), income: inc, expense: exp, profit: inc - exp });
+          });
+        }
+      }
+
+      const uploadedData = {
+        updatedAt: new Date().toLocaleDateString("ko-KR") + " 업로드",
+        source: "upload",
+        sites: Object.values(siteMap),
+        monthly
+      };
+
+      saveUploaded(year, uploadedData);
+      showUploadMsg(`✓ 업로드 완료 — ${uploadedData.sites.length}개 현장 데이터 반영됨`, "ok");
+      populateSiteFilter();
+      render();
+
+    } catch (err) {
+      showUploadMsg("파싱 오류: " + err.message, "err");
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showUploadMsg(msg, type) {
+  const el = document.getElementById("uploadMsg");
+  el.textContent = msg;
+  el.className = "upload-msg " + type;
+}
+
+// ─────────────────────────────────────────────────────
+// 템플릿 다운로드
+// ─────────────────────────────────────────────────────
+function downloadTemplate() {
+  const wb = XLSX.utils.book_new();
+
+  const sheetData = [
+    ["현장코드","현장명","구분","항목명","예상","실행","정산"],
+    ["S001","A현장 (서울)","수입","분양수입",12000,11400,11100],
+    ["S001","A현장 (서울)","수입","기타수입",400,400,400],
+    ["S001","A현장 (서울)","지출","공사비",7000,6800,6700],
+    ["S001","A현장 (서울)","지출","설계비",500,500,500],
+    ["S001","A현장 (서울)","지출","분양비",700,700,700],
+    ["S001","A현장 (서울)","지출","기타",500,500,500],
+    ["S002","B현장 (경기)","수입","분양수입",8800,8600,8500],
+    ["S002","B현장 (경기)","수입","임대수입",400,400,400],
+    ["S002","B현장 (경기)","지출","공사비",6300,6200,6400],
+    ["S002","B현장 (경기)","지출","설계비",400,400,400],
+    ["S002","B현장 (경기)","지출","기타",1100,1100,1100]
+  ];
+
+  const monthlyData = [
+    ["현장코드","현장명","연월","수입","지출"],
+    ["S001","A현장 (서울)","2025-01",900,650],
+    ["S001","A현장 (서울)","2025-02",950,680],
+    ["S002","B현장 (경기)","2025-01",700,500],
+    ["S002","B현장 (경기)","2025-02",750,530]
+  ];
+
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sheetData),  "사업수지");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(monthlyData),"월별");
+  XLSX.writeFile(wb, "사업수지_템플릿.xlsx");
+}
+
+// ─────────────────────────────────────────────────────
+// 필터 & 렌더링
+// ─────────────────────────────────────────────────────
+let currentYear = "2025";
+let currentSite = "all";
+let trendChart  = null;
+let activeChartType = "profit";
+
+document.addEventListener("DOMContentLoaded", () => {
+  currentYear = document.getElementById("filterYear").value;
+  populateSiteFilter();
+  render();
+
+  document.getElementById("filterYear").addEventListener("change", e => {
+    currentYear = e.target.value;
+    populateSiteFilter();
+    render();
+  });
+  document.getElementById("filterSite").addEventListener("change", e => {
+    currentSite = e.target.value;
+    render();
+  });
+  document.getElementById("refreshBtn").addEventListener("click", () => render());
+
+  document.getElementById("uploadToggleBtn").addEventListener("click", () => {
+    document.getElementById("uploadPanel").classList.toggle("open");
+  });
+
+  const fileInput = document.getElementById("excelFileInput");
+  fileInput.addEventListener("change", e => {
+    const f = e.target.files[0];
+    if (f) parseExcel(f, currentYear);
+  });
+
+  const dropZone = document.getElementById("dropZone");
+  dropZone.addEventListener("dragover",  e => { e.preventDefault(); dropZone.classList.add("drag-over"); });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
+  dropZone.addEventListener("drop", e => {
+    e.preventDefault();
+    dropZone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f) parseExcel(f, currentYear);
+  });
+
+  document.getElementById("downloadTemplateBtn").addEventListener("click", downloadTemplate);
+  document.getElementById("clearDataBtn").addEventListener("click", () => {
+    clearUploaded(currentYear);
+    showUploadMsg("업로드 데이터를 초기화했습니다. 목업 데이터로 전환됩니다.", "ok");
+    populateSiteFilter();
+    render();
+  });
+
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      activeChartType = tab.dataset.chart;
+      renderTrendChart(getFilteredData());
+    });
+  });
+});
+
+function populateSiteFilter() {
+  const data = getData(currentYear);
+  if (!data) return;
+  const sel  = document.getElementById("filterSite");
+  const prev = sel.value;
+  sel.innerHTML = '<option value="all">전체 현장</option>';
+  data.sites.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s.id; opt.textContent = s.name;
+    sel.appendChild(opt);
+  });
+  sel.value = (prev !== "all" && data.sites.find(s => s.id === prev)) ? prev : "all";
+  currentSite = sel.value;
+}
+
+function getFilteredData() {
+  const data  = getData(currentYear);
+  if (!data) return { sites: [], monthly: [] };
+  const sites = currentSite === "all" ? data.sites : data.sites.filter(s => s.id === currentSite);
+  return { sites, monthly: data.monthly || [] };
+}
+
+function render() {
+  const data    = getData(currentYear);
+  const { sites, monthly } = getFilteredData();
+
+  document.getElementById("lastUpdated").textContent = data
+    ? "데이터 기준: " + data.updatedAt
+    : "데이터 없음";
+
+  const badge = document.getElementById("sourceBadge");
+  if (data?.source === "upload") {
+    badge.className = "source-badge upload";
+    badge.textContent = "업로드 데이터 사용 중";
+  } else {
+    badge.className = "source-badge mock";
+    badge.textContent = "목업 데이터 사용 중";
+  }
+
+  renderKPI(sites);
+  renderSiteTable(sites);
+  renderTrendChart({ sites, monthly });
+  renderStageTable(sites);
+}
+
+// ─────────────────────────────────────────────────────
+// KPI 카드
+// ─────────────────────────────────────────────────────
+function renderKPI(sites) {
+  const ti = sumStage(sites,"정산","income")  || sumStage(sites,"실행","income");
+  const te = sumStage(sites,"정산","expense") || sumStage(sites,"실행","expense");
+  const tp = ti - te;
+  const cr = ti > 0 ? (te / ti) * 100 : 0;
+  const activeCnt = sites.filter(s => getTotal(s.income["실행"]) || getTotal(s.income["정산"])).length;
+  const profitColor = tp >= 0 ? "var(--profit)" : "var(--loss)";
+
+  document.getElementById("kpiRow").innerHTML = `
+    <div class="kpi-card accent">
+      <div class="label">총 수입 (합산)</div>
+      <div class="value">${fmt(ti)}<span style="font-size:14px;font-weight:400;margin-left:4px">백만원</span></div>
+      <div class="delta neutral">${sites.length}개 현장 합계</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">총 지출 (합산)</div>
+      <div class="value">${fmt(te)}<span style="font-size:14px;font-weight:400;margin-left:4px">백만원</span></div>
+      <div class="delta neutral">원가율 ${fmtRate(cr)}</div>
+    </div>
+    <div class="kpi-card" style="border-color:${profitColor}30">
+      <div class="label">총 손익</div>
+      <div class="value" style="color:${profitColor}">${sign(tp)}${fmt(tp)}<span style="font-size:14px;font-weight:400;margin-left:4px">백만원</span></div>
+      <div class="delta ${tp >= 0 ? 'up' : 'down'}">${tp >= 0 ? '▲ 흑자' : '▼ 적자'}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">원가율 (정산 기준)</div>
+      <div class="value" style="color:${cr > 90 ? 'var(--loss)' : cr > 75 ? 'var(--warn)' : 'var(--profit)'}">
+        ${fmtRate(cr)}
+      </div>
+      <div class="delta neutral">진행 현장 ${activeCnt}개</div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────────────────
+// 현장별 테이블 (현장명 → 상세 링크)
+// ─────────────────────────────────────────────────────
+function renderSiteTable(sites) {
+  document.getElementById("siteCount").textContent = sites.length + "개 현장";
+
+  const rows = sites.map(site => {
+    const c = calcSite(site);
+    const profitVal   = c["정산"].profit ?? c["실행"].profit;
+    const costRateVal = c["정산"].costRate ?? c["실행"].costRate;
+    const achv        = c.achievement;
+    const achvCls     = achv == null ? "" : achv >= 95 ? "profit" : achv >= 80 ? "warn" : "loss";
+    const barCls      = achv == null ? "fill-profit" : achv >= 95 ? "fill-profit" : achv >= 80 ? "fill-warn" : "fill-loss";
+    const detailUrl   = `site-detail.html?id=${encodeURIComponent(site.id)}&year=${currentYear}`;
+
+    return `<tr>
+      <td><a class="site-link" href="${detailUrl}">${site.name} ›</a></td>
+      <td>${fmt(getTotal(site.income["예상"]))}</td>
+      <td>${fmt(getTotal(site.income["실행"]))}</td>
+      <td>${fmt(getTotal(site.income["정산"]))}</td>
+      <td>${fmt(getTotal(site.expense["예상"]))}</td>
+      <td>${fmt(getTotal(site.expense["실행"]))}</td>
+      <td>${fmt(getTotal(site.expense["정산"]))}</td>
+      <td class="${pClass(profitVal)}">${profitVal != null ? sign(profitVal)+fmt(profitVal) : "—"}</td>
+      <td class="${costRateVal>90?'loss':costRateVal>75?'warn':'profit'}">${fmtRate(costRateVal)}</td>
+      <td>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar"><div class="progress-bar-fill ${barCls}" style="width:${Math.min(achv??0,100)}%"></div></div>
+          <span class="${achvCls}" style="font-size:12px;min-width:38px;text-align:right">${fmtRate(achv)}</span>
+        </div>
+      </td>
+    </tr>`;
+  });
+
+  const ti = ["예상","실행","정산"].map(s => sumStage(sites,s,"income"));
+  const te = ["예상","실행","정산"].map(s => sumStage(sites,s,"expense"));
+  const tp = (ti[2]||ti[1]) - (te[2]||te[1]);
+  const cr = (ti[2]||ti[1]) > 0 ? ((te[2]||te[1])/(ti[2]||ti[1]))*100 : 0;
+  rows.push(`<tr class="total-row">
+    <td>합계</td>
+    <td>${fmt(ti[0])}</td><td>${fmt(ti[1])}</td><td>${ti[2]?fmt(ti[2]):"—"}</td>
+    <td>${fmt(te[0])}</td><td>${fmt(te[1])}</td><td>${te[2]?fmt(te[2]):"—"}</td>
+    <td class="${pClass(tp)}">${sign(tp)}${fmt(tp)}</td>
+    <td class="${cr>90?'loss':cr>75?'warn':'profit'}">${fmtRate(cr)}</td>
+    <td>—</td>
+  </tr>`);
+
+  document.getElementById("siteTableBody").innerHTML = rows.join("");
+}
+
+// ─────────────────────────────────────────────────────
+// 추이 차트
+// ─────────────────────────────────────────────────────
+function renderTrendChart({ monthly }) {
+  if (!monthly || !monthly.length) {
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    return;
+  }
+  const labels   = monthly.map(m => m.month);
+  const dsMap = {
+    "profit": [{ label:"손익", data: monthly.map(m=>(m.profit??m.income-m.expense)), borderColor:"#0f766e", backgroundColor:"rgba(15,118,110,.12)", fill:true, tension:.4, pointRadius:4 }],
+    "cost-rate": [{ label:"원가율 (%)", data: monthly.map(m=>m.income>0?+((m.expense/m.income)*100).toFixed(1):0), borderColor:"#d97706", backgroundColor:"rgba(217,119,6,.1)", fill:true, tension:.4, pointRadius:4 }],
+    "income-expense": [
+      { label:"수입", data:monthly.map(m=>m.income), borderColor:"#6366f1", backgroundColor:"rgba(99,102,241,.1)", fill:false, tension:.4, pointRadius:3 },
+      { label:"지출", data:monthly.map(m=>m.expense), borderColor:"#b91c1c", backgroundColor:"rgba(185,28,28,.08)", fill:false, tension:.4, pointRadius:3 }
+    ]
+  };
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById("trendChart").getContext("2d"), {
+    type: "line",
+    data: { labels, datasets: dsMap[activeChartType] },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { position:"top", labels:{ font:{size:12}, boxWidth:12 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toLocaleString("ko-KR")}${activeChartType==="cost-rate"?"%":" 백만원"}` } }
+      },
+      scales: {
+        y: { grid:{color:"#e8ecf2"}, ticks:{ font:{size:11}, callback:v=>Number(v).toLocaleString("ko-KR")+(activeChartType==="cost-rate"?"%":"") } },
+        x: { grid:{color:"#e8ecf2"}, ticks:{font:{size:11}} }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// 단계 비교 테이블
+// ─────────────────────────────────────────────────────
+function renderStageTable(sites) {
+  const rows = ["수입","지출","손익","원가율"].map(label => {
+    const vals = ["예상","실행","정산"].map(s => {
+      if (label==="수입")     return sumStage(sites,s,"income")  || null;
+      if (label==="지출")     return sumStage(sites,s,"expense") || null;
+      if (label==="손익")     { const i=sumStage(sites,s,"income"); const e=sumStage(sites,s,"expense"); return i&&e?i-e:null; }
+      if (label==="원가율")   { const i=sumStage(sites,s,"income"); const e=sumStage(sites,s,"expense"); return i&&e&&i>0?(e/i)*100:null; }
+      return null;
+    });
+    const base   = vals[0];
+    const actual = vals[2] ?? vals[1];
+    let diff = "—", diffCls = "";
+    if (base != null && actual != null) {
+      const d = actual - base;
+      if (label==="원가율") {
+        diff   = (d>=0?"+":"")+d.toFixed(1)+"%p";
+        diffCls = d<=0?"profit":"loss";
+      } else {
+        diff   = (d>=0?"+":"")+fmt(d);
+        diffCls = label==="손익"?(d>=0?"profit":"loss"):(d<=0?"profit":"loss");
+      }
+    }
+    const fmtV = (v, lbl) => {
+      if (v==null) return `<span style="color:var(--muted)">미집계</span>`;
+      if (lbl==="원가율") return `<span class="${v>90?'loss':v>75?'warn':'profit'}">${fmtRate(v)}</span>`;
+      if (lbl==="손익")   return `<span class="${pClass(v)}">${v>=0?"+":""}${fmt(v)}</span>`;
+      return fmt(v);
+    };
+    return `<tr>
+      <td style="font-weight:700">${label}</td>
+      <td>${fmtV(vals[0],label)}</td><td>${fmtV(vals[1],label)}</td><td>${fmtV(vals[2],label)}</td>
+      <td class="${diffCls}" style="font-weight:700">${diff}</td>
+    </tr>`;
+  });
+  document.getElementById("stageTableBody").innerHTML = rows.join("");
+}
+</script>
+</body>
+</html>

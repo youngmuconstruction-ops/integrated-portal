@@ -459,19 +459,18 @@
     }
 
     function businessEmbed() {
-      const safeUrl = escapeHtml(menus.businessUrl);
       return `<div class="embed-wrap">
         <div class="embed-head">
           <div>
-            <strong>기존 사업수지 시스템</strong>
-            <small>${safeUrl}</small>
+            <strong>사업수지 대시보드</strong>
+            <small>integrated-portal / business-dashboard.html</small>
           </div>
           <div class="embed-actions">
             <button class="btn" id="fullscreenBtn">전체화면</button>
-            <button class="btn" onclick="window.open('${menus.businessUrl}','_blank','noopener')">새 창 열기</button>
+            <button class="btn" onclick="window.open('business-dashboard.html','_blank','noopener')">새 창 열기</button>
           </div>
         </div>
-        <iframe class="embed-frame" src="${menus.businessUrl}" title="사업수지 시스템"></iframe>
+        <iframe class="embed-frame" src="business-dashboard.html" title="사업수지 대시보드"></iframe>
       </div>`;
     }
 
